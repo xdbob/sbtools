@@ -1,0 +1,144 @@
+#!/bin/bash
+getopt --test > /dev/null
+if [[ $? != 4 ]]; then
+	echo "I’m sorry, `getopt --test` failed in this environment." >&2
+	exit 1
+fi
+
+function usage {
+	echo "Usage:"
+	echo -ne "\t${0} -k <kernel> -i <initramfs> [-i <initramfs>]" >&2
+	echo -n " [(-c <cmd>|--cmdFile <cmdfile>)] -o <output>" >&2
+	echo " [--osrel <os-release>] [--efistub <efistub>] [-p]" >&2
+	echo -e "\t${0} --config <configFile> [-p] <kernel>" >&2
+	echo "" >&2
+	echo "Combines the kernel, initramfs and boot args into a single efi binary." >&2
+	echo "" >&2
+	echo -e "  -k, --kernel\tThe kernel to embed" >&2
+	echo -e "  -i, --initrd\tThe initramfs to embed, NEED to be UNCOMPRESSED." >&2
+	echo -e "  -c, --cmd\t\tThe kernel boot arguments." >&2
+	echo -e "      --cmdFile\tThe file containing the boot args." >&2
+	echo -e "      --osrel\t\tThe os release file (default to \"/etc/os-release\"" >&2
+	echo -e "      --efistub\tThe efi stub file (default to \"/usr/lib/systemd/boot/efi/systemd-bootx64.efi\"" >&2
+	echo -e "      --config\t" >&2
+	echo -e "  -h, --help\t\tPrints this help." >&2
+	echo -e "  -p\t\t\tPrints the name of the generated file" >&2
+
+	exit $1
+}
+
+SHORT=k:o:i:c:hp
+LONG=kernel:,output:,initrd:,cmd:,cmdFile:,osrel:,efistub:,help,config:
+
+# -temporarily store output to be able to check for errors
+# -activate advanced mode getopt quoting e.g. via “--options”
+# -pass arguments only via   -- "$@"   to separate them correctly
+PARSED=`getopt --options $SHORT --longoptions $LONG --name "$0" -- "$@"`
+if [[ $? != 0 ]]; then
+	# e.g. $? == 1
+	#  then getopt has complained about wrong arguments to stdout
+	exit 2
+fi
+# use eval with "$PARSED" to properly handle the quoting
+eval set -- "$PARSED"
+
+osrel="/etc/os-release"
+efistub="/usr/lib/systemd/boot/efi/linuxx64.efi.stub"
+
+# now enjoy the options in order and nicely split until we see --
+while true; do
+	case "$1" in
+	-k|--kernel)
+		kernel="$2"
+		shift 2
+		;;
+	-o|--output)
+		outFile="$2"
+		shift 2
+		;;
+	-i|--initrd)
+		initrd="${initrd} $2"
+		shift 2
+		;;
+	-c|--cmd)
+		CMD=<(echo -n "$2")
+		shift 2
+		;;
+	--cmdFile)
+		CMD="$2"
+		shift 2
+		;;
+	--efistub)
+		efistub="$2"
+		shift 2
+		;;
+	--osrel)
+		osrel="$2"
+		shift 2
+		;;
+	--config)
+		config="$2"
+		shift 2
+		;;
+	-h|--help)
+		usage 0
+		;;
+	-p)
+		print="true"
+		shift 1
+		;;
+	--)
+		shift
+		break
+		;;
+	*)
+		echo "Unnkown argument: $1" >&2
+		usage 3
+		;;
+	esac
+done
+
+if [ -n "$config" ]; then
+	if [ -z "$1" ]; then
+		echo "Kernel file is missing" >&2
+		usage 4
+	fi
+	kernel="$1"
+	source "$config"
+	name="$(echo ${kernel} | sed 's/\(.\|\)boot\/vmlinuz-//')"
+	initrd="${initrd} /boot/initramfs-${name}.img"
+	outFile="${OUTDIR}/${name}.efi"
+fi
+
+# handle non-option arguments
+if [ -z "$kernel" ]; then
+	echo "$0: -k is mandatory" >&2
+	usage 2
+fi
+if [ -z "$outFile" ]; then
+	echo "$0: -o is mandatory" >&2
+	usage 2
+fi
+if [ -z "$initrd" ]; then
+	echo "$0: -i is mandatory" >&2
+	usage 2
+fi
+
+initramfs=$(mktemp)
+cat ${initrd} > ${initramfs}
+
+objcopy \
+	--add-section .osrel="${osrel}" --change-section-vma .osrel=0x20000 \
+	--add-section .cmdline="${CMD}" --change-section-vma .cmdline=0x30000 \
+	--add-section .linux="${kernel}" --change-section-vma .linux=0x40000 \
+	--add-section .initrd="${initramfs}" --change-section-vma .initrd=0x3000000 \
+	"${efistub}" "$outFile" > /dev/null
+ret=$?
+
+rm -f ${initramfs}
+
+if [ -n "$print" ]; then
+	echo -n "$outFile"
+fi
+
+exit $ret

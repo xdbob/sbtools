@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = File
+Target = boot/vmlinuz-*
+
+[Action]
+Description = Updating UEFI kernel images...
+When = PostTransaction
+Exec = /bin/bash -c 'while read -r f; do sign-binary -d /etc/efi-keys $(make-boot-img --config /etc/boot-img.conf -p "$f"); done'
+NeedsTargets

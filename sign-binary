@@ -1,0 +1,93 @@
+#!/bin/bash
+getopt --test > /dev/null
+if [[ $? != 4 ]]; then
+	echo "I’m sorry, `getopt --test` failed in this environment."
+	exit 1
+fi
+
+function usage {
+	echo "Usage:" >&2
+	echo -e "\t${0} -d <dir> [(--key <key>|--cert <cert>)] [-o <outfile>] binary" >&2
+	echo -e "\t${0} --key <key> --cert <cert> [-o <outfile>] binary" >&2
+	echo "" >&2
+	echo "Signs a binary"
+	echo "" >&2
+	echo -e "  -d, --dir, --cert-dir\tThe directory containing the certificates." >&2
+	echo -e "  -o, --output\t\tThe output binary (defaut the first binary." >&2
+	echo -e "      --key\t\tThe key used to sign." >&2
+	echo -e "      --cert\t\tThe certificate to use." >&2
+	echo -e "  -h, --help\t\tPrints this help." >&2
+
+	exit $1
+}
+
+SHORT=d:o:
+LONG=cert-dir:,dir:,key:,cert:,output:
+
+# -temporarily store output to be able to check for errors
+# -activate advanced mode getopt quoting e.g. via “--options”
+# -pass arguments only via   -- "$@"   to separate them correctly
+PARSED=`getopt --options $SHORT --longoptions $LONG --name "$0" -- "$@"`
+if [[ $? != 0 ]]; then
+	# e.g. $? == 1
+	#  then getopt has complained about wrong arguments to stdout
+	exit 2
+fi
+# use eval with "$PARSED" to properly handle the quoting
+eval set -- "$PARSED"
+
+# now enjoy the options in order and nicely split until we see --
+while true; do
+	case "$1" in
+	-d|--cert-dir|--dir)
+		dir="$2"
+		shift 2
+		;;
+	-o|--output)
+		outFile="$2"
+		shift 2
+		;;
+	--key)
+		key="$2"
+		shift 2
+		;;
+	--cert)
+		cert="$2"
+		shift 2
+		;;
+	--)
+		shift
+		break
+		;;
+	*)
+		usage 3
+		;;
+	esac
+done
+
+if [ -z "$1" ]; then
+	echo "No input file provided" >&2
+	usage 2
+fi
+
+if [ -z "$key" ]; then
+	if [ -z "$dir" ]; then
+		echo "key or dir must be specified" >&2
+		usage 1
+	fi
+	key="${dir}/DB.key"
+fi
+
+if [ -z "$cert" ]; then
+	if [ -z "$dir" ]; then
+		echo "cert or dir must be specified" >&2
+		usage 1
+	fi
+	cert="${dir}/DB.crt"
+fi
+
+if [ -z "$outFile" ]; then
+	outFile="$1"
+fi
+
+sbsign --key "${key}" --cert "${cert}" --output "${outFile}" "${1}"
