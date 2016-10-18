@@ -5,10 +5,10 @@ And pacman hook for auto-generation.
 
 ## Installation
 
-Use `mkkeys` to generate your own Secure Boot keys in the current directory.
-Use `make-boot-img` to combine the kernel intiramfs and boot args into a single
-efi binary (see `make-boot-img -h` for help).
-Use `sign-binary` to sign a binary using your keys (see `sign-binary -h` for
+Use `sb-mkkeys` to generate your own Secure Boot keys in the current directory.
+Use `sb-make-boot-img` to combine the kernel intiramfs and boot args into a single
+efi binary (see `sb-make-boot-img -h` for help).
+Use `sb-sign-binary` to sign a binary using your keys (see `sb-sign-binary -h` for
 help).
 
 [See How to install the efi keys.](http://www.rodsbooks.com/efi-bootloaders/controlling-sb.html#secureone)
