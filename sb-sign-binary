@@ -102,8 +102,10 @@ if [ -f "$CONFIG" ]; then
 	while read line
 	do
 		NAME=$(echo "$line" | cut -d '=' -f 1)
-		if [ -z "${options[${NAME}]}" ]; then
-			options[${NAME}]=$(echo "$line" | cut -d '=' -f 2-)
+		if [ -n "$NAME" ]; then
+			if [ -z "${options[${NAME}]}" ]; then
+				options[${NAME}]=$(echo "$line" | cut -d '=' -f 2-)
+			fi
 		fi
 	done < $CONFIG
 fi
