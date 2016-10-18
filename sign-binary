@@ -38,8 +38,15 @@ function usage {
 	exit $1
 }
 
-SHORT=d:o:
-LONG=cert-dir:,dir:,key:,cert:,output:
+typeset -A options
+options=(
+	[keysdir]=""
+	[key]=""
+	[cert]=""
+)
+
+SHORT=d:o:h
+LONG=cert-dir:,dir:,key:,cert:,output:,help,config:
 
 # -temporarily store output to be able to check for errors
 # -activate advanced mode getopt quoting e.g. via “--options”
@@ -53,23 +60,32 @@ fi
 # use eval with "$PARSED" to properly handle the quoting
 eval set -- "$PARSED"
 
+CONFIG="/etc/sbtools.conf"
+
 # now enjoy the options in order and nicely split until we see --
 while true; do
 	case "$1" in
 	-d|--cert-dir|--dir)
-		dir="$2"
+		options[keysdir]="$2"
 		shift 2
 		;;
 	-o|--output)
-		outFile="$2"
+		OUT="$2"
 		shift 2
 		;;
 	--key)
-		key="$2"
+		options[key]="$2"
 		shift 2
 		;;
 	--cert)
-		cert="$2"
+		options[cert]="$2"
+		shift 2
+		;;
+	-h|--help)
+		usage 0
+		;;
+	--config)
+		CONFIG="$2"
 		shift 2
 		;;
 	--)
@@ -82,29 +98,39 @@ while true; do
 	esac
 done
 
-if [ -z "$1" ]; then
+if [ -f "$CONFIG" ]; then
+	while read line
+	do
+		NAME=$(echo "$line" | cut -d '=' -f 1)
+		if [ -z "${options[${NAME}]}" ]; then
+			options[${NAME}]=$(echo "$line" | cut -d '=' -f 2-)
+		fi
+	done < $CONFIG
+fi
+
+if [ ! -f "$1" ]; then
 	echo "No input file provided" >&2
 	usage 2
 fi
 
-if [ -z "$key" ]; then
-	if [ -z "$dir" ]; then
+if [ ! -f "${options[key]}" ]; then
+	if [ ! -d "${options[keysdir]}" ]; then
 		echo "key or dir must be specified" >&2
 		usage 1
 	fi
-	key="${dir}/DB.key"
+	options[key]="${options[keysdir]}/DB.key"
 fi
 
-if [ -z "$cert" ]; then
-	if [ -z "$dir" ]; then
-		echo "cert or dir must be specified" >&2
+if [ ! -f "${options[cert]}" ]; then
+	if [ ! -d "${options[keysdir]}" ]; then
+		echo "key or dir must be specified" >&2
 		usage 1
 	fi
-	cert="${dir}/DB.crt"
+	options[cert]="${options[keysdir]}/DB.crt"
 fi
 
-if [ -z "$outFile" ]; then
-	outFile="$1"
+if [ -z "$OUT" ]; then
+	OUT="$1"
 fi
 
-sbsign --key "${key}" --cert "${cert}" --output "${outFile}" "${1}"
+sbsign --key "${options[key]}" --cert "${options[cert]}" --output "${OUT}" "${1}"

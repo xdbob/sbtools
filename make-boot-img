@@ -26,8 +26,8 @@ function usage {
 	echo "Usage:"
 	echo -ne "\t${0} -k <kernel> -i <initramfs> [-i <initramfs>]" >&2
 	echo -n " [(-c <cmd>|--cmdFile <cmdfile>)] -o <output>" >&2
-	echo " [--osrel <os-release>] [--efistub <efistub>] [-p]" >&2
-	echo -e "\t${0} --config <configFile> [-p] <kernel>" >&2
+	echo " [--osrel <os-release>] [--efistub <efistub>]" >&2
+	echo -e "\t${0} --config <configFile> <kernel>" >&2
 	echo "" >&2
 	echo "Combines the kernel, initramfs and boot args into a single efi binary." >&2
 	echo "" >&2
@@ -39,13 +39,25 @@ function usage {
 	echo -e "      --efistub\tThe efi stub file (default to \"/usr/lib/systemd/boot/efi/systemd-bootx64.efi\"" >&2
 	echo -e "      --config\t" >&2
 	echo -e "  -h, --help\t\tPrints this help." >&2
-	echo -e "  -p\t\t\tPrints the name of the generated file" >&2
+	echo -e "      --hook\t\tUsed for the hook" >&2
 
 	exit $1
 }
 
-SHORT=k:o:i:c:hp
-LONG=kernel:,output:,initrd:,cmd:,cmdFile:,osrel:,efistub:,help,config:
+typeset -A options
+options=(
+	[kernel]=""
+	[out]=""
+	[initrd]=""
+	[addinitrd]=""
+	[cmd]=""
+	[efistub]=""
+	[osrel]=""
+	[outdir]=""
+)
+
+SHORT=k:o:i:c:h
+LONG=kernel:,output:,initrd:,cmd:,cmdFile:,osrel:,efistub:,help,config:,hook
 
 # -temporarily store output to be able to check for errors
 # -activate advanced mode getopt quoting e.g. via “--options”
@@ -59,50 +71,49 @@ fi
 # use eval with "$PARSED" to properly handle the quoting
 eval set -- "$PARSED"
 
-osrel="/etc/os-release"
-efistub="/usr/lib/systemd/boot/efi/linuxx64.efi.stub"
+CONFIG="/etc/sbtools.conf"
 
 # now enjoy the options in order and nicely split until we see --
 while true; do
 	case "$1" in
 	-k|--kernel)
-		kernel="$2"
+		options[kernel]="$2"
 		shift 2
 		;;
 	-o|--output)
-		outFile="$2"
+		options[out]="$2"
 		shift 2
 		;;
 	-i|--initrd)
-		initrd="${initrd} $2"
+		options[initrd]="${options[initrd]} $2"
 		shift 2
 		;;
 	-c|--cmd)
-		CMD=<(echo -n "$2")
+		options[cmd]=<(echo -n "$2")
 		shift 2
 		;;
 	--cmdFile)
-		CMD="$2"
+		options[cmd]="$2"
 		shift 2
 		;;
 	--efistub)
-		efistub="$2"
+		options[efistub]="$2"
 		shift 2
 		;;
 	--osrel)
-		osrel="$2"
+		options[osrel]="$2"
 		shift 2
 		;;
 	--config)
-		config="$2"
+		CONFIG="$2"
 		shift 2
+		;;
+	--hook)
+		HOOK="true"
+		shift 1
 		;;
 	-h|--help)
 		usage 0
-		;;
-	-p)
-		print="true"
-		shift 1
 		;;
 	--)
 		shift
@@ -115,47 +126,68 @@ while true; do
 	esac
 done
 
-if [ -n "$config" ]; then
-	if [ -z "$1" ]; then
-		echo "Kernel file is missing" >&2
-		usage 4
-	fi
-	kernel="$1"
-	source "$config"
-	name="$(echo ${kernel} | sed 's/\(.\|\)boot\/vmlinuz-//')"
-	initrd="${initrd} /boot/initramfs-${name}.img"
-	outFile="${OUTDIR}/${name}.efi"
+if [ -f "$CONFIG" ]; then
+	while read line
+	do
+		NAME=$(echo "$line" | cut -d '=' -f 1)
+		if [ -z "${options[${NAME}]}" ]; then
+			options[${NAME}]=$(echo "$line" | cut -d '=' -f 2-)
+		fi
+	done < $CONFIG
+fi
+
+if [ -z "${options[kernel]}" ]; then
+	options[kernel]="$1"
+fi
+
+if [ ! -f "${options[kernel]}" ]; then
+	echo "$0: Kernel not found." >&2
+	usage 2
+fi
+
+if [ -n $HOOK ]; then
+	NAME="$(echo ${options[kernel]} | sed 's/\(.\|\)boot\/vmlinuz-//')"
+	options[initrd]="/boot/initramfs-${NAME}.img"
+	options[out]="${options[outdir]}/${NAME}.efi"
 fi
 
 # handle non-option arguments
-if [ -z "$kernel" ]; then
-	echo "$0: -k is mandatory" >&2
+if [ -z "${options[out]}" ]; then
+	echo "$0: Could not determine the outputfile." >&2
 	usage 2
 fi
-if [ -z "$outFile" ]; then
-	echo "$0: -o is mandatory" >&2
+if [ -z "${options[initrd]}" ]; then
+	echo "$0: Could not determine the initramfs to use." >&2
 	usage 2
 fi
-if [ -z "$initrd" ]; then
-	echo "$0: -i is mandatory" >&2
+if [ ! -f "${options[efistub]}" ]; then
+	echo "$0: Could not find the efistub." >&2
+	usage 20
+fi
+if [ ! -f "${options[osrel]}" ]; then
+	echo "$0: Could not find the osrel file." >&2
+	usage 20
+fi
+if [ ! -f "${options[cmd]}" ]; then
+	echo "$0: Could not find command line file." >&2
 	usage 2
 fi
 
-initramfs=$(mktemp)
-cat ${initrd} > ${initramfs}
+INITRAMFS=$(mktemp)
+cat ${options[initrd]} ${options[addinitrd]} > ${INITRAMFS}
 
 objcopy \
-	--add-section .osrel="${osrel}" --change-section-vma .osrel=0x20000 \
-	--add-section .cmdline="${CMD}" --change-section-vma .cmdline=0x30000 \
-	--add-section .linux="${kernel}" --change-section-vma .linux=0x40000 \
-	--add-section .initrd="${initramfs}" --change-section-vma .initrd=0x3000000 \
-	"${efistub}" "$outFile" > /dev/null
+	--add-section .osrel="${options[osrel]}" --change-section-vma .osrel=0x20000 \
+	--add-section .cmdline="${options[cmd]}" --change-section-vma .cmdline=0x30000 \
+	--add-section .linux="${options[kernel]}" --change-section-vma .linux=0x40000 \
+	--add-section .initrd="${INITRAMFS}" --change-section-vma .initrd=0x3000000 \
+	"${options[efistub]}" "${options[out]}" > /dev/null
 ret=$?
 
-rm -f ${initramfs}
+rm -f ${INITRAMFS}
 
-if [ -n "$print" ]; then
-	echo -n "$outFile"
+if [ -n "$HOOK" ]; then
+	echo -n "${options[out]}"
 fi
 
 exit $ret

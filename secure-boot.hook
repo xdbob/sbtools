@@ -7,5 +7,5 @@ Target = boot/vmlinuz-*
 [Action]
 Description = Updating UEFI kernel images...
 When = PostTransaction
-Exec = /bin/bash -c 'while read -r f; do sign-binary -d /etc/efi-keys $(make-boot-img --config /etc/boot-img.conf -p "$f"); done'
+Exec = /bin/bash -c 'while read -r f; do sign-binary $(make-boot-img --hook "$f"); done'
 NeedsTargets
