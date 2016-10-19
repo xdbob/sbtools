@@ -1,5 +1,15 @@
 #!/bin/bash
 
+for file in "PK.key" "PK.crt" "KEK.key" "KEK.crt" "DB.key" "DB.crt" "PK.cer" \
+	"KEK.cer" "DB.cer" "myGUID.txt" "PK.esl" "KEK.esl" "DB.esl" "noPK.esl" \
+	"PK.auth" "noPK.auth"
+do
+  if [ -f $file ]; then
+    echo "Keys already generated in current directory, aborting" >&2
+      exit 1
+  fi
+done
+
 echo -n "Enter a Common Name to embed in the keys: "
 read NAME
 
