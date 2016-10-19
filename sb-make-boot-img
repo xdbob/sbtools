@@ -91,7 +91,9 @@ while true; do
 		shift 2
 		;;
 	-c|--cmd)
-		options[cmd]=<(echo -n "$2")
+		options[cmd]="$(mktemp)"
+		echo -n "$2" > "${options[cmd]}"
+		TMPFILES="${TMPFILES} ${options[cmd]}"
 		shift 2
 		;;
 	--cmdFile)
@@ -132,17 +134,13 @@ if [ -f "$CONFIG" ]; then
 	while read line
 	do
 		NAME=$(echo "$line" | cut -d '=' -f 1)
-		# test -a is not used because bash still try to interpret
-		# ${options[${NAME}]} when $NAME is empty
-		if [ -n "$NAME" ]; then
-			if [ -z "${options[${NAME}]}" ]; then
-				options[${NAME}]=$(echo "$line" | cut -d '=' -f 2-)
-			fi
+		if [ -n "$NAME" ] && [ ${NAME:0:1} != '#' ] && [ -z "${options[${NAME}]}" ]; then
+			options[${NAME}]=$(echo "$line" | cut -d '=' -f 2-)
 		fi
 	done < $CONFIG
 fi
 
-if [ -z "${options[kernel]}" ]; then
+if [ -n "$HOOK" ] || [ -z "${options[kernel]}" ]; then
 	options[kernel]="$1"
 fi
 
@@ -151,7 +149,7 @@ if [ ! -f "${options[kernel]}" ]; then
 	usage 2
 fi
 
-if [ -n $HOOK ]; then
+if [ -n "$HOOK" ]; then
 	NAME="$(echo ${options[kernel]} | sed 's/\(.\|\)boot\/vmlinuz-//')"
 	options[initrd]="/boot/initramfs-${NAME}.img"
 	options[out]="${options[outdir]}/${NAME}.efi"
@@ -180,6 +178,7 @@ if [ ! -f "${options[cmd]}" ]; then
 fi
 
 INITRAMFS=$(mktemp)
+TMPFILES="${TMPFILES} ${INITRAMFS}"
 cat ${options[initrd]} ${options[addinitrd]} > ${INITRAMFS}
 
 objcopy \
@@ -190,7 +189,7 @@ objcopy \
 	"${options[efistub]}" "${options[out]}" > /dev/null
 ret=$?
 
-rm -f ${INITRAMFS}
+rm -f -- ${TMPFILES}
 
 if [ -n "$HOOK" ]; then
 	echo -n "${options[out]}"
