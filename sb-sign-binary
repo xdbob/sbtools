@@ -24,16 +24,17 @@ fi
 
 function usage {
 	echo "Usage:" >&2
-	echo -e "\t${0} -d <dir> [(--key <key>|--cert <cert>)] [-o <outfile>] binary" >&2
-	echo -e "\t${0} --key <key> --cert <cert> [-o <outfile>] binary" >&2
+	echo -e "\t${0} [-d <dir>] [(--key <key>|--cert <cert>)] [-o <outfile>] [--config <config>] binary" >&2
+	echo -e "\t${0} --key <key> --cert <cert> [-o <outfile>] [--config <config>] binary" >&2
 	echo "" >&2
-	echo "Signs a binary"
+	echo "Wrapper of sbsign."
 	echo "" >&2
 	echo -e "  -d, --dir, --cert-dir\tThe directory containing the certificates." >&2
 	echo -e "  -o, --output\t\tThe output binary (defaut the first binary." >&2
 	echo -e "      --key\t\tThe key used to sign." >&2
 	echo -e "      --cert\t\tThe certificate to use." >&2
 	echo -e "  -h, --help\t\tPrints this help." >&2
+	echo -e "      --config\t\tOverride the default configuration file."
 
 	exit $1
 }

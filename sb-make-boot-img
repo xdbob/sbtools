@@ -24,22 +24,24 @@ fi
 
 function usage {
 	echo "Usage:"
-	echo -ne "\t${0} -k <kernel> -i <initramfs> [-i <initramfs>]" >&2
+	echo -ne "\t${0} -i <initramfs> [-i <initramfs>]" >&2
 	echo -n " [(-c <cmd>|--cmdFile <cmdfile>)] -o <output>" >&2
-	echo " [--osrel <os-release>] [--efistub <efistub>]" >&2
-	echo -e "\t${0} --config <configFile> <kernel>" >&2
+	echo " [--osrel <os-release>] [--efistub <efistub>] (-k <kernel>|<kernel>)" >&2
 	echo "" >&2
 	echo "Combines the kernel, initramfs and boot args into a single efi binary." >&2
 	echo "" >&2
 	echo -e "  -k, --kernel\tThe kernel to embed" >&2
-	echo -e "  -i, --initrd\tThe initramfs to embed, NEED to be UNCOMPRESSED." >&2
+	echo -e "  -i, --initrd\tThe initramfs to embed, NEED to be UNCOMPRESSED(may be repeated)." >&2
 	echo -e "  -c, --cmd\t\tThe kernel boot arguments." >&2
 	echo -e "      --cmdFile\tThe file containing the boot args." >&2
 	echo -e "      --osrel\t\tThe os release file (default to \"/etc/os-release\"" >&2
 	echo -e "      --efistub\tThe efi stub file (default to \"/usr/lib/systemd/boot/efi/systemd-bootx64.efi\"" >&2
-	echo -e "      --config\t" >&2
+	echo -e "      --config\tOverride the default config file." >&2
 	echo -e "  -h, --help\t\tPrints this help." >&2
-	echo -e "      --hook\t\tUsed for the hook" >&2
+	echo -e "      --hook\t\tUsed for the hook." >&2
+	echo "" >&2
+	echo "Example:" >&2
+	echo -e "\t${0} -k /boot/vmlinuz-linux -i /boot/intel-ucode.img -i /boot/initramfs-linux.img --cmdFile /etc/cmdline -o /boot/efi/linux.efi"
 
 	exit $1
 }
