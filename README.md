@@ -49,3 +49,6 @@ The mandatory options needed to run the pacman hook are:
 For each kernel `/boot/vmlinuz-<NAME>` the pacman-hook will generate
 `<OUTDIR>/<NAME>.efi` with <OUTDIR> defined in the previously mentionned
 configuration file.
+
+## Known bugs
+The LZOP compression for the initramfs is not supported.

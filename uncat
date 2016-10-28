@@ -1,0 +1,28 @@
+#!/bin/bash
+# LZOP currently unsupported.
+
+MIMELIST=$(file  --mime-type $* | awk -F ': ' '{print $2}')
+
+for mime in $MIMELIST; do
+	case $mime in
+		application/x-bzip2)
+			bzcat "$1"
+			;;
+		application/x-gzip)
+			zcat "$1"
+			;;
+		application/x-lzma)
+			lzcat "$1"
+			;;
+		application/x-xz)
+			xzcat "$1"
+			;;
+		application/x-lz4)
+			lz4cat "$1"
+			;;
+		*)
+			cat "$1"
+			;;
+	esac
+	shift 1
+done

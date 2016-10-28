@@ -31,7 +31,7 @@ function usage {
 	echo "Combines the kernel, initramfs and boot args into a single efi binary." >&2
 	echo "" >&2
 	echo -e "  -k, --kernel\tThe kernel to embed" >&2
-	echo -e "  -i, --initrd\tThe initramfs to embed, NEED to be UNCOMPRESSED(may be repeated)." >&2
+	echo -e "  -i, --initrd\tThe initramfs to embed (may be repeated)." >&2
 	echo -e "  -c, --cmd\t\tThe kernel boot arguments." >&2
 	echo -e "      --cmdFile\tThe file containing the boot args." >&2
 	echo -e "      --osrel\t\tThe os release file (default to \"/etc/os-release\"" >&2
@@ -179,7 +179,7 @@ fi
 
 INITRAMFS=$(mktemp)
 TMPFILES="${TMPFILES} ${INITRAMFS}"
-cat ${options[initrd]} ${options[addinitrd]} > ${INITRAMFS}
+uncat ${options[initrd]} ${options[addinitrd]} > ${INITRAMFS}
 
 objcopy \
 	--add-section .osrel="${options[osrel]}" --change-section-vma .osrel=0x20000 \
