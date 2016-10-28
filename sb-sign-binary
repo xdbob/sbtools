@@ -134,4 +134,9 @@ if [ -z "$OUT" ]; then
 	OUT="$1"
 fi
 
+if sbverify --cert "${options[cert]}" "$1" >/dev/null 2>&1; then
+	echo "$1 was already signed."
+	exit 0
+fi
+
 sbsign --key "${options[key]}" --cert "${options[cert]}" --output "${OUT}" "${1}"
