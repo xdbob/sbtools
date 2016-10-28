@@ -26,7 +26,7 @@ function usage {
 	echo "Usage:"
 	echo -ne "\t${0} -i <initramfs> [-i <initramfs>]" >&2
 	echo -n " [(-c <cmd>|--cmdFile <cmdfile>)] -o <output>" >&2
-	echo " [--osrel <os-release>] [--efistub <efistub>] (-k <kernel>|<kernel>)" >&2
+	echo " [--osrel <os-release>] [--efistub <efistub>] [-v] (-k <kernel>|<kernel>)" >&2
 	echo "" >&2
 	echo "Combines the kernel, initramfs and boot args into a single efi binary." >&2
 	echo "" >&2
@@ -39,6 +39,7 @@ function usage {
 	echo -e "      --config\tOverride the default config file." >&2
 	echo -e "  -h, --help\t\tPrints this help." >&2
 	echo -e "      --hook\t\tUsed for the hook." >&2
+	echo -e "  -v, --verbose\tVerbose mode." >&2
 	echo "" >&2
 	echo "Example:" >&2
 	echo -e "\t${0} -k /boot/vmlinuz-linux -i /boot/intel-ucode.img -i /boot/initramfs-linux.img --cmdFile /etc/cmdline -o /boot/efi/linux.efi"
@@ -58,8 +59,8 @@ options=(
 	[outdir]=""
 )
 
-SHORT=k:o:i:c:h
-LONG=kernel:,output:,initrd:,cmd:,cmdFile:,osrel:,efistub:,help,config:,hook
+SHORT=k:o:i:c:hv
+LONG=kernel:,output:,initrd:,cmd:,cmdFile:,osrel:,efistub:,help,config:,hook,verbose
 
 # -temporarily store output to be able to check for errors
 # -activate advanced mode getopt quoting e.g. via “--options”
@@ -118,6 +119,10 @@ while true; do
 		;;
 	-h|--help)
 		usage 0
+		;;
+	-v|--verbose)
+		VERBOSE="true"
+		shift 1
 		;;
 	--)
 		shift
@@ -179,6 +184,20 @@ fi
 
 INITRAMFS=$(mktemp)
 TMPFILES="${TMPFILES} ${INITRAMFS}"
+
+if [ -n "$VERBOSE" ]; then
+	for i in ${options[initrd]} ${options[addinitrd]}; do
+		echo "Initramfs: $i"
+	done
+	echo "Kernel: ${options[kernel]}"
+	echo -n "Command line: \""
+	cat "${options[cmd]}"
+	echo "\""
+	echo "osrel file: ${options[osrel]}"
+	echo "efistub file: ${options[efistub]}"
+	echo "Output file: ${options[out]}"
+fi
+
 uncat ${options[initrd]} ${options[addinitrd]} > ${INITRAMFS}
 
 objcopy \
