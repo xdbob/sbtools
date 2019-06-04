@@ -1,6 +1,10 @@
 #!/bin/bash
 # LZOP currently unsupported.
 
+if [ $# -eq 0 ]; then
+	exec cat
+fi
+
 MIMELIST=$(file  --mime-type "$@" | awk -F ': *' '{print $2}')
 
 for mime in $MIMELIST; do
