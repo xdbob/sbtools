@@ -1,7 +1,7 @@
 #!/bin/bash
 # LZOP currently unsupported.
 
-MIMELIST=$(file  --mime-type $* | awk -F ': ' '{print $2}')
+MIMELIST=$(file  --mime-type "$@" | awk -F ': *' '{print $2}')
 
 for mime in $MIMELIST; do
 	case $mime in
