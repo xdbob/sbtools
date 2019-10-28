@@ -5,7 +5,7 @@ if [ $# -eq 0 ]; then
 	exec cat
 fi
 
-MIMELIST=$(file  --mime-type "$@" | awk -F ': *' '{print $2}')
+MIMELIST=$(file --mime-type "$@" | awk -F ': *' '{print $2}')
 
 shopt -s extglob
 
