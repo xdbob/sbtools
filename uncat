@@ -7,21 +7,23 @@ fi
 
 MIMELIST=$(file  --mime-type "$@" | awk -F ': *' '{print $2}')
 
+shopt -s extglob
+
 for mime in $MIMELIST; do
 	case $mime in
-		application/x-bzip2)
+		application/?(x-)bzip2)
 			bzcat "$1"
 			;;
-		application/x-gzip)
+		application/?(x-)gzip)
 			zcat "$1"
 			;;
-		application/x-lzma)
+		application/?(x-)lzma)
 			lzcat "$1"
 			;;
-		application/x-xz)
+		application/?(x-)xz)
 			xzcat "$1"
 			;;
-		application/x-lz4)
+		application/?(x-)lz4)
 			lz4cat "$1"
 			;;
 		*)
