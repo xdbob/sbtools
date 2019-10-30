@@ -26,7 +26,7 @@ function usage {
 	echo "Usage:"
 	echo -ne "\t${0} -i <initramfs> [-i <initramfs>]" >&2
 	echo -n " [(-c <cmd>|--cmdFile <cmdfile>)] -o <output>" >&2
-	echo " [--osrel <os-release>] [--efistub <efistub>] [-v] (-k <kernel>|<kernel>)" >&2
+	echo " [--osrel <os-release>] [--efistub <efistub>] [--compress <utility>] [-v] (-k <kernel>|<kernel>)" >&2
 	echo "" >&2
 	echo "Combines the kernel, initramfs and boot args into a single efi binary." >&2
 	echo "" >&2
@@ -36,6 +36,7 @@ function usage {
 	echo -e "      --cmdFile\tThe file containing the boot args." >&2
 	echo -e "      --osrel\t\tThe os release file (default to \"/etc/os-release\"" >&2
 	echo -e "      --efistub\tThe efi stub file (default to \"/usr/lib/systemd/boot/efi/systemd-bootx64.efi\"" >&2
+	echo -e "      --compress\tWitch utility is used to compress the initramfs (default to \"gzip\", \"cat\" to disable compression)" >&2
 	echo -e "      --config\tOverride the default config file." >&2
 	echo -e "  -h, --help\t\tPrints this help." >&2
 	echo -e "      --hook\t\tUsed for the hook." >&2
@@ -52,10 +53,11 @@ typeset -A default_options
 default_options=(
 	[efistub]="/usr/lib/systemd/boot/efi/linuxx64.efi.stub"
 	[osrel]="/etc/os-release"
+	[compress]="gzip"
 )
 
 SHORT=k:o:i:c:hv
-LONG=kernel:,output:,initrd:,cmd:,cmdFile:,osrel:,efistub:,help,config:,hook,verbose
+LONG=kernel:,output:,initrd:,cmd:,cmdFile:,osrel:,efistub:,help,config:,hook,verbose,compress:
 
 # -temporarily store output to be able to check for errors
 # -activate advanced mode getopt quoting e.g. via “--options”
@@ -102,6 +104,10 @@ while true; do
 		;;
 	--osrel)
 		options[osrel]="$2"
+		shift 2
+		;;
+	--compress)
+		options[compress]="$2"
 		shift 2
 		;;
 	--config)
@@ -198,9 +204,10 @@ if [ -n "$VERBOSE" ]; then
 	echo "osrel file: ${options[osrel]}"
 	echo "efistub file: ${options[efistub]}"
 	echo "Output file: ${options[out]}"
+	echo "Compression utility: ${options[compress]}"
 fi
 
-uncat ${options[initrd]} ${options[addinitrd]} > ${INITRAMFS}
+uncat ${options[initrd]} ${options[addinitrd]} | ${options[compress]} > ${INITRAMFS}
 
 objcopy \
 	--add-section .osrel="${options[osrel]}" --change-section-vma .osrel=0x20000 \
