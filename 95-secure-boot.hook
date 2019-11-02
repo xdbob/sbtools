@@ -3,9 +3,10 @@ Operation = Install
 Operation = Upgrade
 Type = File
 Target = boot/vmlinuz-*
+Target = usr/lib/modules/*/vmlinuz
 
 [Action]
 Description = Updating UEFI kernel images...
 When = PostTransaction
-Exec = /bin/bash -c 'while read -r f; do sb-sign-binary $(sb-make-boot-img --hook "$f"); done'
+Exec = /usr/share/libalpm/scripts/secure-boot-hook
 NeedsTargets

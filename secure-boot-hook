@@ -1,0 +1,22 @@
+#!/bin/bash -e
+
+# This script is mostly inspired from the `mkinitcpio-install` hook from archlinux
+
+while read -r line; do
+	if [[ $line != */vmlinuz ]]; then
+		if [[ $line == */vmlinuz-* ]]; then
+			sb-sign-binary $(sb-make-boot-img --hook "$line")
+		else
+			echo "$0: WARNING: \"${line}\" unrecognized"
+			continue
+		fi
+	fi
+
+	if ! read -r pkgbase > /dev/null 2>&1 < "${line%/vmlinuz}/pkgbase"; then
+		echo "$0: WARNING: \"${pkgbase}\" unrecognized"
+		continue
+	fi
+
+	# TODO: Don't assume that /boot/vmlinuz-${pkgbase} will exist
+	sb-sign-binary $(sb-make-boot-img --hook boot/vmlinuz-$pkgbase)
+done
