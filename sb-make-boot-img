@@ -48,15 +48,10 @@ function usage {
 }
 
 typeset -A options
-options=(
-	[kernel]=""
-	[out]=""
-	[initrd]=""
-	[addinitrd]=""
-	[cmd]=""
-	[efistub]=""
-	[osrel]=""
-	[outdir]=""
+typeset -A default_options
+default_options=(
+	[efistub]="/usr/lib/systemd/boot/efi/linuxx64.efi.stub"
+	[osrel]="/etc/os-release"
 )
 
 SHORT=k:o:i:c:hv
@@ -144,6 +139,13 @@ if [ -f "$CONFIG" ]; then
 		fi
 	done < $CONFIG
 fi
+
+for k in "${!default_options[@]}"
+do
+	if [ -z "${options[${k}]+x}" ]; then
+		options[${k}]="${default_options[${k}]}"
+	fi
+done
 
 if [ -n "$HOOK" ] || [ -z "${options[kernel]}" ]; then
 	options[kernel]="$1"
