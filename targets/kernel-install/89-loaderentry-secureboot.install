@@ -1,0 +1,151 @@
+#!/usr/bin/bash
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# ex: ts=8 sw=4 sts=4 et filetype=sh
+
+# This script comes mostly from https://github.com/systemd/systemd/blob/master/src/kernel-install/90-loaderentry.install
+
+# TODO: generate the UEFI binary directly with dracut when generating initrd
+
+COMMAND="$1"
+KERNEL_VERSION="$2"
+ENTRY_DIR_ABS="$3"
+KERNEL_IMAGE="$4"
+INITRD_OPTIONS_START="5"
+
+if ! [[ $KERNEL_INSTALL_MACHINE_ID ]]; then
+    exit 0
+fi
+
+if ! [[ -d "$ENTRY_DIR_ABS" ]]; then
+    exit 0
+fi
+
+MACHINE_ID=$KERNEL_INSTALL_MACHINE_ID
+
+BOOT_ROOT=${ENTRY_DIR_ABS%/$MACHINE_ID/$KERNEL_VERSION}
+BOOT_MNT=$(stat -c %m $BOOT_ROOT)
+ENTRY_DIR=/${ENTRY_DIR_ABS#$BOOT_MNT}
+
+if [[ $COMMAND == remove ]]; then
+    rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
+    rm -f "$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+"*".conf"
+    rm -f "$ENTRY_DIR_ABS/linux.efi"
+    exit 0
+fi
+
+if ! [[ $COMMAND == add ]]; then
+    exit 1
+fi
+
+if ! [[ $KERNEL_IMAGE ]]; then
+    exit 1
+fi
+
+if [[ -f /etc/os-release ]]; then
+    OS_RELEASE="/etc/os-release"
+elif [[ -f /usr/lib/os-release ]]; then
+    OS_RELEASE="/usr/lib/os-release"
+fi
+
+if ! [[ $PRETTY_NAME ]]; then
+    PRETTY_NAME="Linux $KERNEL_VERSION"
+fi
+
+if [[ -f /etc/kernel/cmdline ]]; then
+    read -r -d '' -a BOOT_OPTIONS < /etc/kernel/cmdline
+elif [[ -f /usr/lib/kernel/cmdline ]]; then
+    read -r -d '' -a BOOT_OPTIONS < /usr/lib/kernel/cmdline
+else
+    declare -a BOOT_OPTIONS
+
+    read -r -d '' -a line < /proc/cmdline
+    for i in "${line[@]}"; do
+        [[ "${i#initrd=*}" != "$i" ]] && continue
+        [[ "${i#BOOT_IMAGE=*}" != "$i" ]] && continue
+        BOOT_OPTIONS+=("$i")
+    done
+fi
+
+if [[ -f /etc/kernel/tries ]]; then
+    read -r TRIES </etc/kernel/tries
+    if ! [[ "$TRIES" =~ ^[0-9]+$ ]] ; then
+        echo "/etc/kernel/tries does not contain an integer." >&2
+        exit 1
+    fi
+    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION+$TRIES.conf"
+else
+    LOADER_ENTRY="$BOOT_ROOT/loader/entries/$MACHINE_ID-$KERNEL_VERSION.conf"
+fi
+
+TMPDIR="$(mktemp -d /tmp/kernel-install.XXXXX)" || exit 1
+trap "rm -rf -- $TMPDIR" EXIT
+
+# `uncat` may be in /usr/local/bin, ensure it's in the path
+PATH=/usr/local/bin:$PATH
+
+INITRD_OPTIONS=( "${@:${INITRD_OPTIONS_START}}" )
+
+for initrd in "${INITRD_OPTIONS[@]}"; do
+    initrd_basename="$(basename ${initrd})"
+    if [[ -f "${initrd}" ]]; then
+        [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+            echo "Setting up ${initrd_basename}"
+        uncat "${initrd}" >> "$TMPDIR/initrd.cpio" || exit 1
+    fi
+done
+
+# If no initrd option is supplied, fallback to "initrd" which is
+# the name used by dracut when generating it in its kernel-install hook
+[[ ${#INITRD_OPTIONS[@]} == 0 ]] && uncat "$ENTRY_DIR_ABS/initrd" >> "$TMPDIR/initrd.cpio" || exit 1
+
+echo -n "${BOOT_OPTIONS[*]}" > "$TMPDIR/cmdline"
+
+# Load configuration
+for i in /usr/local/share/sbtools /usr/share/sbtools; do
+    [ -e $i/loadconfig.sh ] && . $i/loadconfig.sh && break
+done
+
+# dracut should have handle the compression for us
+#[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Compressing initramfs"
+#cat "$TMPDIR/initrd.cpio" | "${options[compress]}" > "$TMPDIR/initrd"
+
+[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Generating EFI binary"
+objcopy --add-section .osrel="$OS_RELEASE" \
+    --change-section-vma .osrel=0x20000 \
+    --add-section .cmdline="$TMPDIR/cmdline" \
+    --change-section-vma .cmdline=0x30000 \
+    --add-section .linux="$KERNEL_IMAGE" \
+    --change-section-vma .linux=0x40000 \
+    --add-section .initrd="$TMPDIR/initrd.cpio" \
+    --change-section-vma .initrd=0x3000000 \
+    /usr/lib/systemd/boot/efi/linuxx64.efi.stub \
+    "$TMPDIR/linux.efi" || exit 1
+
+if [ -d "${options[keysdir]}" ]; then
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Creating signed $ENTRY_DIR_ABS/linux.efi"
+    sb-sign-binary -o "$ENTRY_DIR_ABS/linux.efi" "$TMPDIR/linux.efi" || exit 1
+else
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Creating $ENTRY_DIR_ABS/linux.efi"
+    cp "$TMPDIR/linux.efi" "$ENTRY_DIR_ABS/linux.efi" || exit 1
+fi
+
+mkdir -p "${LOADER_ENTRY%/*}" || {
+    echo "Could not create loader entry directory '${LOADER_ENTRY%/*}'." >&2
+    exit 1
+}
+
+[ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+    echo "Creating $LOADER_ENTRY"
+{
+    echo "title      $PRETTY_NAME"
+    echo "version    $KERNEL_VERSION"
+    echo "machine-id $MACHINE_ID"
+    echo "efi        $ENTRY_DIR/linux.efi"
+    :
+} > "$LOADER_ENTRY" || {
+    echo "Could not create loader entry '$LOADER_ENTRY'." >&2
+    exit 1
+}
+
+# bypass 90-loaderentry.install
+exit 77
