@@ -29,7 +29,7 @@ function usage {
 	echo "" >&2
 	echo "Wrapper of sbsign."
 	echo "" >&2
-	echo -e "  -d, --dir, --cert-dir\tThe directory containing the certificates." >&2
+	echo -e "  -d, --dir, --cert-dir\tThe directory containing the certificates. (defaults to /etc/efi-keys)" >&2
 	echo -e "  -o, --output\t\tThe output binary (defaut the first binary." >&2
 	echo -e "      --key\t\tThe key used to sign." >&2
 	echo -e "      --cert\t\tThe certificate to use." >&2

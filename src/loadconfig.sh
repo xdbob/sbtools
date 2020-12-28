@@ -13,6 +13,7 @@ default_options=(
 	[efistub]="/usr/lib/systemd/boot/efi/linuxx64.efi.stub"
 	[osrel]="/etc/os-release"
 	[compress]="gzip"
+	[keysdir]="/etc/efi-keys"
 )
 
 if [ -f "$CONFIG" ]; then
