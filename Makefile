@@ -6,12 +6,14 @@ all:
 clean:
 
 install:
+	install -D -m 644 src/loadconfig.sh ${DESTDIR}/${PREFIX}/share/sbtools/loadconfig.sh
 	install -D -m 755 src/sbmkkeys ${DESTDIR}/${PREFIX}/bin/sbmkkeys
 	install -D -m 755 src/sb-make-boot-img ${DESTDIR}/${PREFIX}/bin/sb-make-boot-img
 	install -D -m 755 src/sb-sign-binary ${DESTDIR}/${PREFIX}/bin/sb-sign-binary
 	install -D -m 755 src/uncat ${DESTDIR}/${PREFIX}/bin/uncat
 
 uninstall:
+	${RM} ${DESTDIR}/${PREFIX}/share/sbtools/loadconfig.sh
 	${RM} ${DESTDIR}/${PREFIX}/bin/sbmkkeys
 	${RM} ${DESTDIR}/${PREFIX}/bin/sb-make-boot-img
 	${RM} ${DESTDIR}/${PREFIX}/bin/sb-sign-binary

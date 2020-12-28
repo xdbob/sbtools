@@ -39,13 +39,6 @@ function usage {
 	exit $1
 }
 
-typeset -A options
-options=(
-	[keysdir]=""
-	[key]=""
-	[cert]=""
-)
-
 SHORT=d:o:h
 LONG=cert-dir:,dir:,key:,cert:,output:,help,config:
 
@@ -99,15 +92,9 @@ while true; do
 	esac
 done
 
-if [ -f "$CONFIG" ]; then
-	while read line
-	do
-		NAME=$(echo "$line" | cut -d '=' -f 1)
-		if [ -n "$NAME" ] && [ ${NAME:0:1} != '#' ] && [ -z "${options[${NAME}]}" ]; then
-			options[${NAME}]=$(echo "$line" | cut -d '=' -f 2-)
-		fi
-	done < $CONFIG
-fi
+for i in /usr/local/share/sbtools /usr/share/sbtools; do
+	[ -e $i/loadconfig.sh ] && . $i/loadconfig.sh && break
+done
 
 if [ ! -f "$1" ]; then
 	echo "No input file provided" >&2
