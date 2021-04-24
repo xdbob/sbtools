@@ -33,6 +33,9 @@ for mime in $MIMELIST; do
 		application/?(x-)lz4)
 			lz4cat "$1"
 			;;
+		application/?(x-)zstd)
+			zstdcat "$1"
+			;;
 		application/octet-stream)
 			cat_or_lzop "$1"
 			;;
