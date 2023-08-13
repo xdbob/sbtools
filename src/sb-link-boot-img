@@ -1,0 +1,53 @@
+#!/bin/bash
+# Usage: relink.sh <systemd-stub.pe> <vmlinuz> <output> [(<section_name> <file>)]...
+
+# Source: https://wiki.archlinux.org/title/Unified_kernel_image#Manually
+# Note: `objdump` output is not machine-readable, the script may break on newer
+#       versions.
+
+# FIXME: error handling (subshells)
+set -Eeuo pipefail
+
+STUB="$1"
+KERNEL="$2"
+OUT="$3"
+shift 3
+
+ALIGN="$(objdump -p "${STUB}" | awk '{
+	if ($1 == "SectionAlignment") {
+		print $2
+	}
+}')"
+ALIGN="$((16#${ALIGN}))"
+
+# FIXME: this assumes that the sections don't overlap and are in-order.
+BASE_ADDR="$(objdump -h "${STUB}" | awk 'NF==7 {
+	size=strtonum("0x"$3);
+	offset=strtonum("0x"$4)
+}
+END {
+	print size + offset
+}')"
+
+ARGS=()
+add_section() {
+	local section="$1"
+	local file="$2"
+	local fsize="$(stat -Lc%s "${file}")"
+
+	BASE_ADDR="$((BASE_ADDR + ALIGN - BASE_ADDR % ALIGN))"
+	ARGS+=(
+		--add-section "${section}=${file}"
+		--change-section-vma "${section}=$(printf 0x%x "${BASE_ADDR}")"
+	)
+	BASE_ADDR="$((BASE_ADDR + fsize))"
+}
+
+while [ $# -gt 0 ]; do
+	add_section "$1" "$2"
+	shift 2
+done
+
+add_section .linux "${KERNEL}"
+
+exec objcopy "${ARGS[@]}" "${STUB}" "${OUT}"

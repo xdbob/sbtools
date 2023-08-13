@@ -136,7 +136,7 @@ while true; do
 	esac
 done
 
-for i in /usr/local/share/sbtools /usr/share/sbtools; do
+for i in /usr/local/share/sbtools /usr/share/sbtools .; do
 	[ -e $i/loadconfig.sh ] && . $i/loadconfig.sh && break
 done
 
@@ -196,12 +196,10 @@ fi
 
 uncat ${options[initrd]} ${options[addinitrd]} | ${options[compress]} > ${INITRAMFS}
 
-objcopy \
-	--add-section .osrel="${options[osrel]}" --change-section-vma .osrel=0x20000 \
-	--add-section .cmdline="${options[cmd]}" --change-section-vma .cmdline=0x30000 \
-	--add-section .linux="${options[kernel]}" --change-section-vma .linux=0x40000 \
-	--add-section .initrd="${INITRAMFS}" --change-section-vma .initrd=0x3000000 \
-	"${options[efistub]}" "${options[out]}" > /dev/null
+sb-link-boot-img "${options[efistub]}" "${options[kernel]}" "${options[out]}" \
+	.osrel "${options[osrel]}" \
+	.cmdline "${options[cmd]}" \
+	.initrd "${INITRAMFS}"
 ret=$?
 
 rm -f -- ${TMPFILES}
