@@ -5,7 +5,6 @@
 # Note: `objdump` output is not machine-readable, the script may break on newer
 #       versions.
 
-# FIXME: error handling (subshells)
 set -Eeuo pipefail
 
 STUB="$1"
@@ -33,13 +32,14 @@ ARGS=()
 add_section() {
 	local section="$1"
 	local file="$2"
-	local fsize="$(stat -Lc%s "${file}")"
+	local fsize
 
 	BASE_ADDR="$((BASE_ADDR + ALIGN - BASE_ADDR % ALIGN))"
 	ARGS+=(
 		--add-section "${section}=${file}"
 		--change-section-vma "${section}=$(printf 0x%x "${BASE_ADDR}")"
 	)
+	fsize="$(stat -Lc%s "${file}")"
 	BASE_ADDR="$((BASE_ADDR + fsize))"
 }
 
